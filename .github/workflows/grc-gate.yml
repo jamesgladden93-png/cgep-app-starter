@@ -119,7 +119,7 @@ jobs:
         if: always()
         run: |
           BUNDLE="evidence-${{ github.run_id }}.tar.gz"
-          VAULT="${{ vars.EVIDENCE_VAULT }}"
+          VAULT=$(terraform -chdir=${{ env.TF_WORKING_DIR }} output -raw evidence_vault_bucket 2>/dev/null || echo "${{ vars.EVIDENCE_VAULT }}")
           PREFIX="runs/${{ github.run_id }}"
           aws s3 cp "$BUNDLE"               "s3://${VAULT}/${PREFIX}/${BUNDLE}"
           aws s3 cp "${BUNDLE}.sha256"      "s3://${VAULT}/${PREFIX}/${BUNDLE}.sha256"
