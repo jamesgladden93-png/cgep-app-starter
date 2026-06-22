@@ -75,6 +75,51 @@ cgep-app-starter/
     └── intake.sh
 ```
 
+## Grader Verification
+
+### Layer 1 — Terraform baseline
+
+```bash
+cd terraform
+terraform init -input=false
+terraform validate
+terraform plan -out=tfplan
+terraform show -json tfplan > plan.json
+```
+
+Expected: plan applies without errors. CloudTrail, KMS, SSE-KMS on S3 and DynamoDB, TLS bucket policy, versioning, Lambda DLQ/X-Ray, and API GW logging all appear as resources.
+
+### Layer 2 — OPA policy suite
+
+```bash
+# Unit tests (14 tests, all must pass)
+opa test ./policies -v
+
+# Gate against the current plan (0 failures expected)
+cd terraform
+conftest test --policy ../policies --all-namespaces --output=json plan.json
+```
+
+To verify fail-closed behavior, change `sse_algorithm = "aws:kms"` to `"AES256"` in `terraform/s3-hardening.tf`, re-run `terraform plan`, and re-run conftest — GAP-01 failure should appear.
+
+### Layer 3 — GitHub Actions pipeline
+
+Open a PR to `main`. The `grc-gate` workflow runs automatically. Download the `grc-evidence-<run_id>` artifact from the Actions tab. It contains:
+- `plan.json` — structured Terraform plan
+- `conftest-results.json` — Conftest output
+- `tfsec.sarif` — tfsec scan
+- `trestle-validate.txt` — OSCAL validation
+
+### Layer 4 — OSCAL component definition
+
+```bash
+trestle validate -f component-definitions/acme-health-intake-api/component-definition.json
+```
+
+Expected: `VALID: Model ... passed the Validator`
+
+Framework: **CMMC Level 2** (NIST SP 800-171 Rev 2). Control IDs follow the pattern `<family>-<practice>` (e.g., `sc-3.13.11`). See `WRITEUP.md` for full gap-to-control traceability.
+
 ## License
 
 MIT. Fork freely. Submissions remain learners' own work.

@@ -1,3 +1,13 @@
+# METADATA
+# title: GAP-02 — DynamoDB tables must use customer-managed KMS encryption
+# description: Enforces SC.L2-3.13.11 (FIPS-validated cryptography). Fails any plan
+#   where the DynamoDB intake table does not have server-side encryption enabled.
+# custom:
+#   framework: cmmc-l2
+#   controls:
+#     - "SC.L2-3.13.11"
+#   severity: high
+#   gap: GAP-02
 package compliance.dynamodb
 
 import rego.v1
