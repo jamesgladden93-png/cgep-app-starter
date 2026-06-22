@@ -35,6 +35,31 @@ resource "aws_s3_bucket_object_lock_configuration" "evidence_vault" {
   }
 }
 
+resource "aws_s3_bucket_policy" "evidence_vault_tls" {
+  bucket = aws_s3_bucket.evidence_vault.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "DenyNonTLS"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          aws_s3_bucket.evidence_vault.arn,
+          "${aws_s3_bucket.evidence_vault.arn}/*"
+        ]
+        Condition = {
+          Bool = { "aws:SecureTransport" = "false" }
+        }
+      }
+    ]
+  })
+
+  depends_on = [aws_s3_bucket_public_access_block.evidence_vault]
+}
+
 output "evidence_vault_bucket" {
   value = aws_s3_bucket.evidence_vault.id
 }
