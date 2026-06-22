@@ -3,9 +3,9 @@
 # description: Enforces SC.L2-3.13.11 (FIPS-validated cryptography). Fails any plan
 #   where the DynamoDB intake table does not have server-side encryption enabled.
 # custom:
-#   framework: cmmc-l2
+#   framework: nist-800-53-rev5
 #   controls:
-#     - "SC.L2-3.13.11"
+#     - "SC-28"
 #   severity: high
 #   gap: GAP-02
 package compliance.dynamodb

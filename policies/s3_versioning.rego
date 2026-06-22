@@ -7,9 +7,9 @@ import rego.v1
 # description: Enforces MP.L2-3.8.9 (media protection / backup). Fails any plan
 #   where the S3 uploads bucket versioning configuration is absent or disabled.
 # custom:
-#   framework: cmmc-l2
+#   framework: nist-800-53-rev5
 #   controls:
-#     - "MP.L2-3.8.9"
+#     - "CP-9"
 #   severity: medium
 #   gap: GAP-04
 deny contains msg if {

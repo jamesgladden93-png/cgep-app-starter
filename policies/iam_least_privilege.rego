@@ -3,9 +3,9 @@
 # description: Enforces AC.L2-3.1.5 (least privilege). Fails any plan where an
 #   aws_iam_role_policy contains s3:* or dynamodb:* wildcard action grants.
 # custom:
-#   framework: cmmc-l2
+#   framework: nist-800-53-rev5
 #   controls:
-#     - "AC.L2-3.1.5"
+#     - "AC-3"
 #   severity: high
 #   gap: GAP-07
 package compliance.iam

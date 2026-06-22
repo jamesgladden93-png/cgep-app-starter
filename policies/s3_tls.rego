@@ -7,9 +7,9 @@ import rego.v1
 # description: Enforces SC.L2-3.13.8 (encryption in transit). Fails any plan where
 #   the S3 uploads bucket policy omits an aws:SecureTransport=false deny statement.
 # custom:
-#   framework: cmmc-l2
+#   framework: nist-800-53-rev5
 #   controls:
-#     - "SC.L2-3.13.8"
+#     - "SC-8"
 #   severity: high
 #   gap: GAP-03
 deny contains msg if {
