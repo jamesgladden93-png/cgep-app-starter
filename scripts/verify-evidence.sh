@@ -3,7 +3,7 @@
 set -euo pipefail
 RUN_ID="${1:?usage: verify-evidence.sh <run_id> [--vault <bucket>] [--profile <p>]}"
 shift || true
-VAULT="${EVIDENCE_VAULT:-cgep-lab-grc-evidence-vault-f43675c5}"
+VAULT="${EVIDENCE_VAULT:-}"
 PROFILE_ARG="--profile AdministratorAccess-975494510927"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -29,7 +29,7 @@ ACTUAL=$(shasum -a 256 "${BUNDLE}" | awk '{print $1}')
 # 2. Authenticity + timestamp
 cosign verify-blob \
   --bundle "${BUNDLE}.sig.bundle" \
-  --certificate-identity-regexp '^https://github.com/jamesgladden93-png/CGEP-Capstone/' \
+  --certificate-identity-regexp '^https://github.com/jamesgladden93-png/cgep-app-starter/' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   "${BUNDLE}"
 

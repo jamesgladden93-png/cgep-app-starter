@@ -4,7 +4,7 @@ set -euo pipefail
 
 POLICY_DIR="policies"
 WORKSPACE=""
-EVIDENCE_DIR="evidence/lab-3-4"
+EVIDENCE_DIR="evidence/capstone"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -19,18 +19,17 @@ mkdir -p "$EVIDENCE_DIR"
 
 ( cd "$WORKSPACE" && terraform show -json tfplan > "$WORKSPACE/plan.json" )
 
+conftest test --policy "$POLICY_DIR" --all-namespaces --output=json "$WORKSPACE/plan.json" \
+  > "$EVIDENCE_DIR/conftest-results.json" || true
+
 EXIT=0
-{
-  echo "["
-  FIRST=1
-  for ns in compliance.sc28_aws compliance.ac3_aws compliance.cm6_aws compliance.cm6 ; do
-    [[ $FIRST -eq 1 ]] && FIRST=0 || printf ","
-    OUT=$(conftest test --policy "$POLICY_DIR" --namespace "$ns" --output=json "$WORKSPACE/plan.json" || true)
-    if echo "$OUT" | python3 -c 'import sys,json; d=json.load(sys.stdin); sys.exit(0 if all(len(r.get("failures") or [])==0 for r in d) else 1)'; then : ; else EXIT=1 ; fi
-    echo "$OUT"
-  done
-  echo "]"
-} > "$EVIDENCE_DIR/conftest-results.json"
+python3 -c '
+import json, sys
+d = json.load(open("'"$EVIDENCE_DIR"'/conftest-results.json"))
+fails = sum(len(r.get("failures") or []) for r in d)
+print(f"conftest failures: {fails}")
+sys.exit(0 if fails == 0 else 1)
+' || EXIT=1
 
 if [[ $EXIT -eq 0 ]]; then echo "policy-gate: PASS"
 else echo "policy-gate: FAIL"; echo "See $EVIDENCE_DIR/conftest-results.json"
