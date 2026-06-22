@@ -3,9 +3,9 @@
 # description: Enforces SC.L2-3.13.11 (FIPS-validated cryptography). Fails any plan
 #   where the S3 uploads bucket SSE configuration deviates from aws:kms.
 # custom:
-#   framework: nist-800-53-rev5
+#   framework: cmmc-l2
 #   controls:
-#     - "SC-28"
+#     - "SC.L2-3.13.10"
 #   severity: high
 #   gap: GAP-01
 package compliance.s3

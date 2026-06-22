@@ -32,12 +32,12 @@
         "control-implementations": [
           {
             "uuid": "f3580929-3e01-4350-ae28-f3c07e35b71c",
-            "source": "https://raw.githubusercontent.com/usnistgov/oscal-content/main/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_catalog.json",
-            "description": "NIST 800-53 Rev 5 controls implemented by the Acme Health intake API Terraform configuration and OPA policy suite.",
+            "source": "https://raw.githubusercontent.com/usnistgov/oscal-content/main/nist.gov/SP800-171/rev2/json/NIST_SP-800-171_rev2_catalog.json",
+            "description": "CMMC Level 2 / NIST SP 800-171 Rev 2 controls implemented by the Acme Health intake API Terraform configuration and OPA policy suite.",
             "implemented-requirements": [
               {
                 "uuid": "bc4c6e28-2c9a-4d7b-a3b1-53511ef9a40e",
-                "control-id": "sc-28",
+                "control-id": "sc-3.13.10",
                 "description": "PHI at rest is encrypted with a customer-managed KMS key (aws_kms_key.phi). The S3 uploads bucket uses SSE-KMS via aws_s3_bucket_server_side_encryption_configuration. The DynamoDB intake table uses server_side_encryption with the same CMK. Lambda environment variables reference the KMS key ARN and the function has kms:Decrypt/Encrypt/GenerateDataKey permissions. The Rego policies s3_kms.rego and dynamodb_kms.rego fail the Terraform plan if either data store deviates from CMK encryption.",
                 "props": [
                   {
@@ -68,7 +68,7 @@
               },
               {
                 "uuid": "6d96c96d-2d71-463c-9e92-132fee417d1e",
-                "control-id": "sc-8",
+                "control-id": "sc-3.13.8",
                 "description": "Data in transit is protected by TLS. The S3 uploads bucket has a bucket policy (aws_s3_bucket_policy.uploads_tls) with a Deny on aws:SecureTransport=false covering all s3:* actions on both the bucket and its objects. API Gateway exposes only HTTPS endpoints. The Rego policy s3_tls.rego fails any plan where the uploads bucket policy omits the SecureTransport deny.",
                 "props": [
                   {
@@ -87,7 +87,7 @@
               },
               {
                 "uuid": "3e0c56bb-3c01-448b-a048-3ab48c9ef959",
-                "control-id": "cp-9",
+                "control-id": "mp-3.8.9",
                 "description": "S3 versioning is enabled on the uploads bucket (aws_s3_bucket_versioning.uploads, status=Enabled), ensuring PHI objects can be recovered after accidental overwrites or deletes. The Rego policy s3_versioning.rego fails any plan where versioning is absent or disabled.",
                 "props": [
                   {
@@ -106,7 +106,7 @@
               },
               {
                 "uuid": "24ce8bef-de7e-47e3-a209-fe8ccd5c3e22",
-                "control-id": "ac-3",
+                "control-id": "ac-3.1.5",
                 "description": "Least-privilege IAM is enforced at two layers. The Lambda execution role (aws_iam_role_policy.lambda_inline) grants only dynamodb:GetItem/PutItem/UpdateItem on the intake table and s3:GetObject/PutObject on the uploads bucket — not wildcard actions. The Rego policy iam_least_privilege.rego fails any plan where an IAM role policy contains s3:* or dynamodb:* wildcard actions.",
                 "props": [
                   {
@@ -125,7 +125,7 @@
               },
               {
                 "uuid": "424b8570-1d7f-4d0e-bc06-f51f9e44a940",
-                "control-id": "si-2",
+                "control-id": "si-3.14.6",
                 "description": "Lambda resilience controls reduce the blast radius of function failures. A dead-letter queue (aws_sqs_queue.lambda_dlq) captures failed invocations via the dead_letter_config block. AWS X-Ray active tracing is enabled (tracing_config mode=Active) for distributed tracing and anomaly detection. The Lambda IAM role has sqs:SendMessage on the DLQ ARN.",
                 "props": [
                   {
@@ -148,7 +148,7 @@
               },
               {
                 "uuid": "15fe582b-5695-4cf6-b2f6-e6d8d12ebcab",
-                "control-id": "au-2",
+                "control-id": "au-3.3.1",
                 "description": "API Gateway access logging is enabled on the $default stage (aws_apigatewayv2_stage.default) with destination CloudWatch log group /aws/apigateway/acme-health-intake (90-day retention). The JSON log format captures requestId, sourceIp, requestTime, routeKey, HTTP status, and responseLength for every invocation. Throttling is enforced at burst=100 / rate=50 RPS via default_route_settings.",
                 "props": [
                   {
@@ -167,7 +167,7 @@
               },
               {
                 "uuid": "7a2f9c1e-4b83-4d7a-9f1c-8e2b3c4d5e6f",
-                "control-id": "sc-5",
+                "control-id": "sc-3.13.1",
                 "description": "API Gateway throttling (burst limit 100, rate limit 50 req/s) protects the Lambda backend from volumetric denial-of-service. The Lambda function itself does not set reserved_concurrent_executions because the sandbox account's total concurrency is at the AWS floor of 10, but throttling at the API layer provides the primary DoS protection boundary.",
                 "props": [
                   {

@@ -2,86 +2,86 @@
 
 **Author:** James Gladden  
 **Repository:** jamesgladden93-png/cgep-app-starter  
-**Primary Framework:** NIST SP 800-53 Rev 5  
+**Primary Framework:** CMMC Level 2 (NIST SP 800-171 Rev 2)  
 **Date:** June 2026
 
 ---
 
 ## 1. Framework Selection and Rationale
 
-I selected **NIST SP 800-53 Rev 5** as the primary compliance framework. It is the most broadly recognized federal security control catalog and provides the canonical control IDs that OSCAL tooling (Trestle) resolves against published catalog content. Acme Health handles PHI and is exploring federal pilots, making 800-53 the right anchor — HIPAA technical safeguards and CMMC L2 practices both map onto it cleanly.
+I selected **CMMC Level 2** as the primary compliance framework. Acme Health handles PHI and is exploring federal health-IT pilots, making CMMC L2 the most defensible choice. CMMC L2 inherits the 110 practices of NIST SP 800-171 Rev 2 and maps cleanly onto every named gap in this workload.
 
-- Encryption at rest → **SC-28** (Protection of Information at Rest)
-- Encryption in transit → **SC-8** (Transmission Confidentiality and Integrity)
-- Access enforcement / least privilege → **AC-3** (Access Enforcement)
-- Audit logging → **AU-2** (Event Logging)
-- System monitoring / resilience → **SI-2** (Flaw Remediation / DLQ + X-Ray)
-- Boundary protection / DoS → **SC-5** (Denial of Service Protection)
-- Data backup/versioning → **CP-9** (Information System Backup)
+- Encryption at rest → **SC.L2-3.13.10** (Employment of Cryptographic Mechanisms)
+- Encryption in transit → **SC.L2-3.13.8** (Implement Subnetworks)
+- Access enforcement / least privilege → **AC.L2-3.1.5** (Least Privilege)
+- Audit logging → **AU.L2-3.3.1** (Create and Retain Audit Logs)
+- System monitoring / resilience → **SI.L2-3.14.6** (Monitor Organizational Systems)
+- Boundary protection → **SC.L2-3.13.1** (Boundary Protection)
+- Data backup/versioning → **MP.L2-3.8.9** (Protect CUI During Transport)
 
 ---
 
 ## 2. Gaps Addressed
 
-### GAP-01 — S3 PHI bucket using SSE-S3 instead of CMK (SC-28)
+### GAP-01 — S3 PHI bucket using SSE-S3 instead of CMK (SC.L2-3.13.10)
 
 **Layer 1 (Terraform):** `terraform/kms.tf` creates `aws_kms_key.phi` with `enable_key_rotation = true`. `terraform/s3-hardening.tf` adds `aws_s3_bucket_server_side_encryption_configuration.uploads` wiring the uploads bucket to the CMK via `kms_master_key_id`.
 
 **Layer 2 (Rego):** `policies/s3_kms.rego` fails any plan where `sse_algorithm != "aws:kms"`.
 
-**Layer 4 (OSCAL):** `control-id: sc-28`
+**Layer 4 (OSCAL):** `control-id: sc-3.13.10`
 
-### GAP-02 — DynamoDB using AWS-owned key instead of CMK (SC-28)
+### GAP-02 — DynamoDB using AWS-owned key instead of CMK (SC.L2-3.13.10)
 
 **Layer 1 (Terraform):** `terraform/kms_permissions.tf` grants Lambda `kms:Decrypt/Encrypt/GenerateDataKey` on the CMK. `terraform/main.tf` sets `server_side_encryption { enabled = true; kms_key_arn = aws_kms_key.phi.arn }` on `aws_dynamodb_table.intake`.
 
 **Layer 2 (Rego):** `policies/dynamodb_kms.rego` fails any plan where `server_side_encryption[0].enabled` is false.
 
-**Layer 4 (OSCAL):** `control-id: sc-28` (same requirement as GAP-01)
+**Layer 4 (OSCAL):** `control-id: sc-3.13.10` (same requirement as GAP-01)
 
-### GAP-03 — S3 bucket accepts non-TLS requests (SC-8)
+### GAP-03 — S3 bucket accepts non-TLS requests (SC.L2-3.13.8)
 
 **Layer 1 (Terraform):** `terraform/s3_tls_policy.tf` creates `aws_s3_bucket_policy.uploads_tls` with a `Deny` on `aws:SecureTransport=false` for all `s3:*` actions.
 
 **Layer 2 (Rego):** `policies/s3_tls.rego` fails any plan where the bucket policy string does not contain `aws:securetransport`.
 
-**Layer 4 (OSCAL):** `control-id: sc-8`
+**Layer 4 (OSCAL):** `control-id: sc-3.13.8`
 
-### GAP-04 — S3 bucket has no versioning (CP-9)
+### GAP-04 — S3 bucket has no versioning (MP.L2-3.8.9)
 
 **Layer 1 (Terraform):** `terraform/s3_versioning.tf` adds `aws_s3_bucket_versioning.uploads` with `status = "Enabled"`.
 
 **Layer 2 (Rego):** `policies/s3_versioning.rego` fails any plan where versioning status is not `"Enabled"`.
 
-**Layer 4 (OSCAL):** `control-id: cp-9`
+**Layer 4 (OSCAL):** `control-id: mp-3.8.9`
 
-### GAP-05 — Lambda not in VPC (SC-5)
+### GAP-05 — Lambda not in VPC (SC.L2-3.13.1)
 
 **Layer 1 (Terraform):** `terraform/lambda_networking.tf` creates a dedicated `aws_security_group.lambda`. `terraform/main.tf` `aws_lambda_function.intake` includes a `vpc_config` block placing the function in the VPC's public subnets with that security group.
 
-**Layer 4 (OSCAL):** `control-id: sc-5` (boundary protection / DoS)
+**Layer 4 (OSCAL):** `control-id: sc-3.13.1`
 
 *Note: This gap is addressed at Layer 1 only — no Rego policy covers it because Lambda VPC placement cannot be detected from the Terraform plan resource type alone without access to subnet ARNs.*
 
-### GAP-06 — No DLQ, no X-Ray (SI-2)
+### GAP-06 — No DLQ, no X-Ray (SI.L2-3.14.6)
 
 **Layer 1 (Terraform):** `terraform/lambda_resilience.tf` creates `aws_sqs_queue.lambda_dlq`. `terraform/main.tf` adds `dead_letter_config { target_arn = aws_sqs_queue.lambda_dlq.arn }` and `tracing_config { mode = "Active" }` to the Lambda. `aws_iam_role_policy.lambda_dlq` grants `sqs:SendMessage` to the execution role.
 
-**Layer 4 (OSCAL):** `control-id: si-2`
+**Layer 4 (OSCAL):** `control-id: si-3.14.6`
 
-### GAP-07 — Lambda IAM role has wildcard s3:* and dynamodb:* (AC-3)
+### GAP-07 — Lambda IAM role has wildcard s3:* and dynamodb:* (AC.L2-3.1.5)
 
 **Layer 1 (Terraform):** `aws_iam_role_policy.lambda_inline` in `main.tf` was replaced with scoped actions: `dynamodb:GetItem/PutItem/UpdateItem` and `s3:GetObject/PutObject` on specific resource ARNs only.
 
 **Layer 2 (Rego):** `policies/iam_least_privilege.rego` fails any plan where the policy string contains `"action":"s3:*"` or `"action":"dynamodb:*"`.
 
-**Layer 4 (OSCAL):** `control-id: ac-3`
+**Layer 4 (OSCAL):** `control-id: ac-3.1.5`
 
 ### GAP-08 — API Gateway has no logging or throttling (AU.L2-3.3.1, SC.L2-3.13.1)
 
 **Layer 1 (Terraform):** `terraform/api_gateway_hardening.tf` creates `aws_cloudwatch_log_group.apigw` (90-day retention). `aws_apigatewayv2_stage.default` in `main.tf` adds `access_log_settings` writing JSON-structured logs to that log group, and `default_route_settings` with `throttling_burst_limit = 100` and `throttling_rate_limit = 50`.
 
-**Layer 4 (OSCAL):** `control-id: au-2` (logging) and `control-id: sc-5` (throttle/boundary)
+**Layer 4 (OSCAL):** `control-id: au-3.3.1` (logging) and `control-id: sc-3.13.1` (boundary/throttle)
 
 ---
 
