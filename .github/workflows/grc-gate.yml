@@ -29,22 +29,26 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
+        if: always()
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
           terraform_wrapper: false
 
       - name: Install Conftest
+        if: always()
         run: |
           curl -fsSL https://github.com/open-policy-agent/conftest/releases/download/v0.50.0/conftest_0.50.0_Linux_x86_64.tar.gz \
             | tar -xz -C /usr/local/bin conftest
 
       - name: Install tfsec
+        if: always()
         run: |
           curl -fsSL https://github.com/aquasecurity/tfsec/releases/download/v1.28.14/tfsec-linux-amd64 \
             -o /usr/local/bin/tfsec && chmod +x /usr/local/bin/tfsec
 
       - name: Create evidence directory
+        if: always()
         run: mkdir -p evidence
 
       - name: Terraform plan
@@ -96,6 +100,7 @@ jobs:
       - name: Validate OSCAL component definition
         if: always()
         run: |
+          mkdir -p evidence
           pip install --quiet compliance-trestle
           trestle validate -f component-definitions/acme-health-intake-api/component-definition.json \
             | tee evidence/trestle-validate.txt
