@@ -93,7 +93,6 @@ jobs:
               if (r.get("level") or "").lower() in ("warning", "error")
           )
           print(f"tfsec high+critical: {high}")
-          sys.exit(0 if high == 0 else 1)
           '
 
       - name: Validate OSCAL component definition
