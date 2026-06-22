@@ -8,6 +8,6 @@ resource "aws_kms_key" "phi" {
 }
 
 resource "aws_kms_alias" "phi" {
-  name          = "alias/acme-health-phi"
+  name          = "alias/acme-health-phi-${local.suffix}"
   target_key_id = aws_kms_key.phi.key_id
 }
