@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write       # required for AWS OIDC + Cosign keyless (Lab 4.4)
+  id-token: write       # required for AWS OIDC + Cosign keyless
   contents: read
-  pull-requests: write  # required to comment on the PR
+  pull-requests: write
 
 env:
   AWS_REGION: us-east-1
@@ -22,14 +22,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Configure AWS credentials (OIDC)
-        if: ${{ vars.AWS_ROLE_ARN != '' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
-        if: always()
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
@@ -47,22 +45,20 @@ jobs:
           curl -fsSL https://github.com/aquasecurity/tfsec/releases/download/v1.28.14/tfsec-linux-amd64 \
             -o /usr/local/bin/tfsec && chmod +x /usr/local/bin/tfsec
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
       - name: Create evidence directory
         if: always()
         run: mkdir -p evidence
 
-      - name: Terraform plan
-        if: ${{ vars.AWS_ROLE_ARN != '' }}
+      - name: Terraform init and plan
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           terraform init -input=false
           terraform validate
           terraform plan -out=tfplan -no-color 2>&1 | tee ../evidence/plan.txt
           terraform show -json tfplan > plan.json
-
-      - name: Use committed plan.json (no AWS credentials)
-        if: ${{ vars.AWS_ROLE_ARN == '' }}
-        run: cp ${{ env.TF_WORKING_DIR }}/plan.json ${{ env.TF_WORKING_DIR }}/plan.json
 
       - name: Conftest policy gate
         id: conftest
@@ -78,6 +74,10 @@ jobs:
           sys.exit(0 if fails == 0 else 1)
           '
 
+      - name: Terraform apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -auto-approve -input=false tfplan
+
       - name: tfsec scan
         id: tfsec
         if: always()
@@ -87,7 +87,6 @@ jobs:
           python3 -c '
           import json, sys
           d = json.load(open("../evidence/tfsec.sarif"))
-          # SARIF levels from tfsec: "note" (low/medium), "warning" (high), "error" (critical)
           high = sum(
               1 for run in d.get("runs", [])
               for r in run.get("results", [])
@@ -105,11 +104,29 @@ jobs:
           trestle validate -f component-definitions/acme-health-intake-api/component-definition.json \
             | tee evidence/trestle-validate.txt
 
-      - name: Copy plan into evidence
+      - name: Bundle and sign evidence
         if: always()
         run: |
           cp ${{ env.TF_WORKING_DIR }}/plan.json evidence/plan.json || true
+          BUNDLE="evidence-${{ github.run_id }}.tar.gz"
+          tar -czf "$BUNDLE" evidence/
+          sha256sum "$BUNDLE" > "${BUNDLE}.sha256"
+          cosign sign-blob --yes \
+            --bundle "${BUNDLE}.sig.bundle" \
+            "$BUNDLE"
 
+      - name: Upload evidence bundle to S3 vault
+        if: always()
+        run: |
+          BUNDLE="evidence-${{ github.run_id }}.tar.gz"
+          VAULT="${{ vars.EVIDENCE_VAULT }}"
+          PREFIX="runs/${{ github.run_id }}"
+          aws s3 cp "$BUNDLE"               "s3://${VAULT}/${PREFIX}/${BUNDLE}"
+          aws s3 cp "${BUNDLE}.sha256"      "s3://${VAULT}/${PREFIX}/${BUNDLE}.sha256"
+          aws s3 cp "${BUNDLE}.sig.bundle"  "s3://${VAULT}/${PREFIX}/${BUNDLE}.sig.bundle"
+          echo "{ \"run_id\": \"${{ github.run_id }}\", \"repo\": \"${{ github.repository }}\", \"sha\": \"${{ github.sha }}\", \"bundle\": \"${BUNDLE}\" }" \
+            > receipt.json
+          aws s3 cp receipt.json "s3://${VAULT}/${PREFIX}/receipt.json"
 
       - name: Upload evidence artifact
         if: always()
