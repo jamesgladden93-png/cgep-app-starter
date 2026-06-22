@@ -100,7 +100,7 @@ jobs:
         run: |
           mkdir -p evidence
           pip install --quiet compliance-trestle
-          trestle validate -f oscal/components/acme-health-intake-api.json \
+          trestle validate -f component-definitions/acme-health-intake-api/component-definition.json \
             | tee evidence/trestle-validate.txt
 
       - name: Bundle and sign evidence
