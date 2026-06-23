@@ -21,7 +21,24 @@ I selected **CMMC Level 2** as the primary compliance framework. Acme Health han
 
 ---
 
-## 2. Gaps Addressed
+## 2. Control-to-Code Traceability Matrix
+
+| CMMC Practice | NIST 800-171 | Gap | Terraform Resource | Rego Policy | OSCAL control-id |
+|---|---|---|---|---|---|
+| SC.L2-3.13.10 | 3.13.10 | GAP-01 | `aws_kms_key.phi`, `aws_s3_bucket_server_side_encryption_configuration.uploads` | `policies/s3_kms.rego` | `sc-3.13.10` |
+| SC.L2-3.13.10 | 3.13.10 | GAP-02 | `aws_dynamodb_table.intake` (server_side_encryption) | `policies/dynamodb_kms.rego` | `sc-3.13.10` |
+| SC.L2-3.13.8 | 3.13.8 | GAP-03 | `aws_s3_bucket_policy.uploads_tls`, `aws_s3_bucket_policy.evidence_vault_tls` | `policies/s3_tls.rego` | `sc-3.13.8` |
+| MP.L2-3.8.9 | 3.8.9 | GAP-04 | `aws_s3_bucket_versioning.uploads`, `aws_s3_bucket_versioning.evidence_vault` | `policies/s3_versioning.rego` | `mp-3.8.9` |
+| AC.L2-3.1.5 | 3.1.5 | GAP-07 | `aws_iam_role_policy.lambda_inline` (scoped actions) | `policies/iam_least_privilege.rego` | `ac-3.1.5` |
+| AU.L2-3.3.1 | 3.3.1 | — | `aws_cloudtrail.main`, `aws_cloudwatch_log_group.cloudtrail`, `aws_cloudwatch_metric_alarm.root_login` | — | `au-3.3.1` |
+| SI.L2-3.14.6 | 3.14.6 | — | `aws_cloudwatch_metric_alarm.lambda_errors`, `aws_cloudwatch_event_rule.s3_policy_change`, `aws_cloudwatch_event_rule.iam_policy_change` | — | `si-3.14.6` |
+
+Full OSCAL implementation: `component-definitions/acme-health-intake-api/component-definition.json`
+
+---
+
+## 3. Gaps Addressed
+
 
 ### GAP-01 — S3 PHI bucket using SSE-S3 instead of CMK (SC.L2-3.13.10)
 
@@ -85,7 +102,7 @@ I selected **CMMC Level 2** as the primary compliance framework. Acme Health han
 
 ---
 
-## 3. Layer 1 — Terraform GRC Baseline
+## 4. Layer 1 — Terraform GRC Baseline
 
 New Terraform files added on top of the starter:
 
@@ -111,7 +128,7 @@ New Terraform files added on top of the starter:
 
 ---
 
-## 4. Layer 2 — OPA Policy Suite
+## 5. Layer 2 — OPA Policy Suite
 
 Five Rego policies in `policies/`, each with OPA METADATA annotations:
 
@@ -129,7 +146,7 @@ Run: `opa test ./policies -v`
 
 ---
 
-## 5. Layer 3 — GitHub Actions Evidence Pipeline
+## 6. Layer 3 — GitHub Actions Evidence Pipeline
 
 `.github/workflows/grc-gate.yml` runs on every PR to `main`:
 
@@ -145,7 +162,7 @@ A **green PR** demonstrates all gates pass on compliant Terraform. A **red PR** 
 
 ---
 
-## 6. Layer 4 — OSCAL Component Definition
+## 7. Layer 4 — OSCAL Component Definition
 
 `component-definitions/acme-health-intake-api/component-definition.json`
 
@@ -162,7 +179,7 @@ Each `implemented-requirement` includes:
 
 ---
 
-## 7. Monitoring & Detection Layer
+## 8. Monitoring & Detection Layer
 
 `terraform/monitoring.tf` implements real-time detection on top of the CloudTrail audit log stream:
 
@@ -193,7 +210,7 @@ AWS Config rules were not added — they require a Config recorder which costs ~
 
 ---
 
-## 8. Known Gaps Not Fully Addressed
+## 9. Known Gaps Not Fully Addressed
 
 | Gap | Status | Reason |
 |---|---|---|
@@ -204,7 +221,7 @@ AWS Config rules were not added — they require a Config recorder which costs ~
 
 ---
 
-## 8. Evidence Chain
+## 10. Evidence Chain
 
 The GitHub Actions pipeline uploads a `grc-evidence-<run_id>` artifact containing:
 
