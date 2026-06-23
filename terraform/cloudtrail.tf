@@ -68,20 +68,53 @@ resource "aws_kms_key_policy" "cloudtrail" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "Enable IAM User Permissions"
-        Effect = "Allow"
+        Sid       = "Enable IAM User Permissions"
+        Effect    = "Allow"
         Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
-        Action   = "kms:*"
-        Resource = "*"
+        Action    = "kms:*"
+        Resource  = "*"
       },
       {
-        Sid    = "Allow CloudTrail to encrypt logs"
-        Effect = "Allow"
+        Sid       = "Allow CloudTrail to encrypt logs"
+        Effect    = "Allow"
         Principal = { Service = "cloudtrail.amazonaws.com" }
-        Action   = ["kms:GenerateDataKey*", "kms:DescribeKey"]
-        Resource = "*"
+        Action    = ["kms:GenerateDataKey*", "kms:DescribeKey"]
+        Resource  = "*"
       }
     ]
+  })
+}
+
+resource "aws_cloudwatch_log_group" "cloudtrail" {
+  name              = "/aws/cloudtrail/${local.name_prefix}-${local.suffix}"
+  retention_in_days = 90
+  kms_key_id        = aws_kms_key.phi.arn
+}
+
+resource "aws_iam_role" "cloudtrail_cw" {
+  name = "${local.name_prefix}-cloudtrail-cw-${local.suffix}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "cloudtrail.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "cloudtrail_cw" {
+  name = "cloudwatch-logs"
+  role = aws_iam_role.cloudtrail_cw.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+      Resource = "${aws_cloudwatch_log_group.cloudtrail.arn}:*"
+    }]
   })
 }
 
@@ -92,6 +125,8 @@ resource "aws_cloudtrail" "main" {
   is_multi_region_trail         = true
   enable_log_file_validation    = true
   kms_key_id                    = aws_kms_key.phi.arn
+  cloud_watch_logs_group_arn    = "${aws_cloudwatch_log_group.cloudtrail.arn}:*"
+  cloud_watch_logs_role_arn     = aws_iam_role.cloudtrail_cw.arn
 
   tags = {
     Purpose = "AuditTrail"
