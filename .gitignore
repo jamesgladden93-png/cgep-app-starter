@@ -16,3 +16,21 @@ terraform/lambda/handler.zip
 # Local
 evidence/
 .DS_Store
+
+# Secrets / keys
+*.pem
+*.key
+*.p8
+.env
+.env.*
+cosign.key
+cosign.pub
+
+# Cosign / sigstore artifacts (generated at runtime)
+*.sig
+*.sig.bundle
+*.sbom
+
+# Editor
+.vscode/
+.idea/
