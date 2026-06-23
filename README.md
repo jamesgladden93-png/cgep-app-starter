@@ -38,6 +38,8 @@ When you're done exploring: `make destroy`.
 
 ## What you build on top
 
+See [WRITEUP.md](WRITEUP.md) for framework choice, gap remediation walk-through, design trade-offs, and monitoring architecture.
+
 Fork the repo into your own `cgep-capstone` and add:
 
 1. **Layer 1 — GRC baseline (Terraform).** KMS keys, an S3 evidence vault with Object Lock, a CloudTrail trail. Bring this starter's data stores under your CMK.
@@ -62,15 +64,29 @@ Roughly $0 if destroyed within an hour. Lambda + API Gateway + DynamoDB + S3 are
 ```
 cgep-app-starter/
 ├── README.md            # this file
+├── WRITEUP.md           # framework choice, gap remediation, trade-offs
 ├── WORKLOAD.md          # what the API does
 ├── GAPS.md              # the named flaws your policies must catch
 ├── FRAMEWORKS.md        # HIPAA / SOC 2 / CMMC mapping primer
+├── LICENSE
 ├── Makefile             # make deploy | test | destroy
 ├── terraform/
 │   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   └── lambda/handler.py
+│   ├── kms.tf           # CMK for PHI encryption
+│   ├── s3-hardening.tf  # SSE-KMS on uploads bucket
+│   ├── cloudtrail.tf    # CloudTrail + CW Logs delivery
+│   ├── evidence_vault.tf # S3 vault with Object Lock
+│   ├── monitoring.tf    # CloudWatch alarms + EventBridge rules
+│   └── ...
+├── policies/
+│   ├── s3_kms.rego       # GAP-01 SC.L2-3.13.10
+│   ├── dynamodb_kms.rego # GAP-02 SC.L2-3.13.10
+│   ├── s3_tls.rego       # GAP-03 SC.L2-3.13.8
+│   ├── s3_versioning.rego # GAP-04 MP.L2-3.8.9
+│   ├── iam_least_privilege.rego # GAP-07 AC.L2-3.1.5
+│   └── *_test.rego
+├── oscal/components/acme-health-intake-api.json
+├── component-definitions/acme-health-intake-api/component-definition.json
 └── test/
     └── intake.sh
 ```
@@ -87,7 +103,7 @@ terraform plan -out=tfplan
 terraform show -json tfplan > plan.json
 ```
 
-Expected: plan applies without errors. CloudTrail, KMS, SSE-KMS on S3 and DynamoDB, TLS bucket policy, versioning, Lambda DLQ/X-Ray, and API GW logging all appear as resources.
+Expected: plan applies without errors. CloudTrail, KMS, SSE-KMS on S3 and DynamoDB, TLS bucket policy, versioning, Lambda DLQ/X-Ray, API GW logging, CloudWatch alarms (root login, KMS deletion, Lambda errors), EventBridge rules (S3/IAM drift), and SNS alert topic all appear as resources.
 
 ### Layer 2 — OPA policy suite
 
@@ -109,6 +125,15 @@ Open a PR to `main`. The `grc-gate` workflow runs automatically. Download the `g
 - `conftest-results.json` — Conftest output
 - `tfsec.sarif` — tfsec scan
 - `trestle-validate.txt` — OSCAL validation
+
+### Layer 5 — Monitoring & detection
+
+```bash
+aws cloudwatch describe-alarms --alarm-name-prefix acme-health-intake
+aws events list-rules --name-prefix acme-health-intake
+```
+
+Expected: 3 CloudWatch alarms (root-login, kms-deletion, lambda-errors) and 2 EventBridge rules (s3-policy-change, iam-policy-change) are ENABLED and routing to the SNS alerts topic.
 
 ### Layer 4 — OSCAL component definition
 

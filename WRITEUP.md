@@ -99,7 +99,8 @@ New Terraform files added on top of the starter:
 | `terraform/lambda_networking.tf` | Dedicated Lambda security group |
 | `terraform/lambda_resilience.tf` | SQS dead-letter queue |
 | `terraform/api_gateway_hardening.tf` | CloudWatch log group for API GW |
-| `terraform/cloudtrail.tf` | Multi-region CloudTrail with log-file validation |
+| `terraform/cloudtrail.tf` | Multi-region CloudTrail with CW Logs delivery |
+| `terraform/monitoring.tf` | CloudWatch alarms + EventBridge drift detection rules |
 
 `terraform/main.tf` was modified to:
 - Remove duplicate `timeout` argument
@@ -161,7 +162,38 @@ Each `implemented-requirement` includes:
 
 ---
 
-## 7. Known Gaps Not Fully Addressed
+## 7. Monitoring & Detection Layer
+
+`terraform/monitoring.tf` implements real-time detection on top of the CloudTrail audit log stream:
+
+### CloudTrail → CloudWatch Logs delivery
+CloudTrail now delivers to `/aws/cloudtrail/<name>-<suffix>` via a dedicated IAM role (`cloudtrail-cw`). This enables metric filters to run against the live event stream rather than querying S3.
+
+### CloudWatch Metric Filters + Alarms
+
+| Alarm | Filter pattern | CMMC practice |
+|---|---|---|
+| `root-login-alarm` | `$.userIdentity.type = "Root"` | AU.L2-3.3.1 |
+| `kms-deletion-alarm` | `ScheduleKeyDeletion` or `DisableKey` on kms.amazonaws.com | SC.L2-3.13.10 |
+| `lambda-errors-alarm` | Lambda `Errors` metric > 5 over 2 periods | SI.L2-3.14.6 |
+
+All alarms publish to `aws_sns_topic.alerts` (KMS-encrypted with the same CMK).
+
+### EventBridge Drift Detection Rules
+
+| Rule | Events watched | CMMC practice |
+|---|---|---|
+| `s3-policy-change` | `PutBucketPolicy`, `DeleteBucketPolicy`, `PutBucketAcl` | AC.L2-3.1.5 |
+| `iam-policy-change` | `PutRolePolicy`, `AttachRolePolicy`, `DetachRolePolicy`, `CreatePolicyVersion` | AC.L2-3.1.5 |
+
+Both rules route to the same SNS topic, providing near-real-time notification of IAM/S3 drift that could bypass the Rego policy gate.
+
+### What was not done
+AWS Config rules were not added — they require a Config recorder which costs ~$2/month continuously. EventBridge + CloudWatch covers the same drift surface for this sandbox workload at near-zero cost.
+
+---
+
+## 8. Known Gaps Not Fully Addressed
 
 | Gap | Status | Reason |
 |---|---|---|
