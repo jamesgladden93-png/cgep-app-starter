@@ -19,7 +19,7 @@ resource "aws_sns_topic" "alerts" {
 
 resource "aws_cloudwatch_log_metric_filter" "root_login" {
   name           = "${local.name_prefix}-root-login-${local.suffix}"
-  log_group_name = "/aws/cloudtrail/${local.name_prefix}-${local.suffix}"
+  log_group_name = aws_cloudwatch_log_group.cloudtrail.name
   pattern        = "{ $.userIdentity.type = \"Root\" && $.eventType != \"AwsServiceEvent\" }"
 
   metric_transformation {
@@ -49,7 +49,7 @@ resource "aws_cloudwatch_metric_alarm" "root_login" {
 
 resource "aws_cloudwatch_log_metric_filter" "kms_key_deletion" {
   name           = "${local.name_prefix}-kms-deletion-${local.suffix}"
-  log_group_name = "/aws/cloudtrail/${local.name_prefix}-${local.suffix}"
+  log_group_name = aws_cloudwatch_log_group.cloudtrail.name
   pattern        = "{ $.eventSource = \"kms.amazonaws.com\" && ($.eventName = \"ScheduleKeyDeletion\" || $.eventName = \"DisableKey\") }"
 
   metric_transformation {
