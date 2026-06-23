@@ -5,6 +5,8 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *'  # daily at 06:00 UTC — continuous compliance evidence collection
 
 permissions:
   id-token: write       # required for AWS OIDC + Cosign keyless
@@ -117,12 +119,14 @@ jobs:
       - name: Upload evidence bundle to S3 vault
         if: always()
         run: |
+          set -euo pipefail
           BUNDLE="evidence-${{ github.run_id }}.tar.gz"
           VAULT=$(terraform -chdir=${{ env.TF_WORKING_DIR }} output -raw evidence_vault_bucket 2>/dev/null || echo "${{ vars.EVIDENCE_VAULT }}")
+          if [[ -z "$VAULT" ]]; then echo "ERROR: EVIDENCE_VAULT not set"; exit 1; fi
           PREFIX="runs/${{ github.run_id }}"
-          aws s3 cp "$BUNDLE"               "s3://${VAULT}/${PREFIX}/${BUNDLE}"
-          aws s3 cp "${BUNDLE}.sha256"      "s3://${VAULT}/${PREFIX}/${BUNDLE}.sha256"
-          aws s3 cp "${BUNDLE}.sig.bundle"  "s3://${VAULT}/${PREFIX}/${BUNDLE}.sig.bundle"
+          for FILE in "$BUNDLE" "${BUNDLE}.sha256" "${BUNDLE}.sig.bundle"; do
+            aws s3 cp "$FILE" "s3://${VAULT}/${PREFIX}/${FILE}" || { echo "RETRY: $FILE"; sleep 5; aws s3 cp "$FILE" "s3://${VAULT}/${PREFIX}/${FILE}"; }
+          done
           echo "{ \"run_id\": \"${{ github.run_id }}\", \"repo\": \"${{ github.repository }}\", \"sha\": \"${{ github.sha }}\", \"bundle\": \"${BUNDLE}\" }" \
             > receipt.json
           aws s3 cp receipt.json "s3://${VAULT}/${PREFIX}/receipt.json"
