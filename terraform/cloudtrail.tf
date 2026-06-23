@@ -80,6 +80,20 @@ resource "aws_kms_key_policy" "cloudtrail" {
         Principal = { Service = "cloudtrail.amazonaws.com" }
         Action    = ["kms:GenerateDataKey*", "kms:DescribeKey"]
         Resource  = "*"
+      },
+      {
+        Sid    = "Allow CloudWatch Logs to use key"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.us-east-1.amazonaws.com"
+        }
+        Action   = ["kms:Encrypt*", "kms:Decrypt*", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:Describe*"]
+        Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:us-east-1:${data.aws_caller_identity.current.account_id}:*"
+          }
+        }
       }
     ]
   })
@@ -89,6 +103,8 @@ resource "aws_cloudwatch_log_group" "cloudtrail" {
   name              = "/aws/cloudtrail/${local.name_prefix}-${local.suffix}"
   retention_in_days = 90
   kms_key_id        = aws_kms_key.phi.arn
+
+  depends_on = [aws_kms_key_policy.cloudtrail]
 }
 
 resource "aws_iam_role" "cloudtrail_cw" {
